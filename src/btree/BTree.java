@@ -1,5 +1,7 @@
 package btree;
 
+import java.util.Arrays;
+
 public class BTree {
     private int M;
 
@@ -33,7 +35,7 @@ public class BTree {
         xChild.isLeaf = newChild.isLeaf;
         xChild.numKey = halfKey();
         for (int i = 0; i < halfKey(); i++)
-            xChild.keys[i] = newChild.keys[i + halfKey() + 1];
+            xChild.keys[i] = newChild.keys[i + halfKey()];
 
         if (!newChild.isLeaf)
             for (int i = 0; i < halfKey() + 1; i++)
@@ -83,5 +85,15 @@ public class BTree {
             }
             insert(node.child[i], key);
         }
+    }
+
+    public void show() {
+        show(root);
+    }
+    private void show(Node root) {
+        System.out.println(Arrays.toString(root.keys));
+        if (!root.isLeaf)
+            for (int i = 0; i <= root.numKey; i++)
+                show(root.child[i]);
     }
 }
