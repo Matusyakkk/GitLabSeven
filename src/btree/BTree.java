@@ -3,97 +3,142 @@ package btree;
 import java.util.Arrays;
 
 public class BTree {
-    private int M;
+    static int order;
+    BNode root;
+    private class BNode {
+        static int t; // variable to determine order of tree
+        int count;  // number of key in node
+        int[] key;  // array of key value
+        BNode[] child; // array of reference
+        boolean leaf;  // is node a leaf or not
+        BNode parent; // parent of curent node
 
-    int halfKey;
+        BNode(){}
 
-    private int halfKey() {
-        if (M%2==0)
-            halfKey = M/2 - 1;
+        BNode(int t, BNode parent) {
+            this.t = t; // assing size
+            this.parent = parent;   // assign parent
+            key = new int[2 * t - 1];   // array of proper size
+            child = new BNode[2 * t];   // array of refs proper size
+            leaf = true;    // everyone is leaf at first
+            count = 0;  // until we add keys later
+        }
+
+        int getValue(int idx) {return key[idx];}
+        BNode getChild(int idx) {return child[idx];}
+    }
+
+    public BTree(int order) {
+        this.order = order;
+        root = new BNode(order, null);
+    }
+
+    public BNode search(int key) {
+        return search(root, key);
+    }
+    private BNode search(BNode root, int key) {
+        int i = 0;
+        while (i < root.count && key > root.key[i]) i++;
+
+        if (i <= root.count && key == root.key[i])
+            return root;
+        if (root.leaf)
+            return null;
         else
-            halfKey = M/2;
-        return halfKey;
-    }
-    private Node root;
-
-    class Node {
-        int numKey;
-        int[] keys = new int[M - 1]; // key array
-        Node[] child = new Node[M];
-        boolean isLeaf = true;
+            return search(root.getChild(i), key);
     }
 
-    public BTree(int M) {
-        this.M = M;
-        root = new Node();
-        root.numKey = 0;
-        root.isLeaf = true;
-    }
+    private void split(BNode parent, int idx, BNode newChild) {
+        BNode xChild = new BNode(order, null);
+        xChild.leaf = newChild.leaf;
+        xChild.count = order - 1;
 
-    private void split(Node parent, int childIdx, Node newChild) {
-        Node xChild = new Node();
-        xChild.isLeaf = newChild.isLeaf;
-        xChild.numKey = halfKey();
-        for (int i = 0; i < halfKey(); i++)
-            xChild.keys[i] = newChild.keys[i + halfKey()];
+        for (int i = 0; i < order - 1; i++)
+            xChild.key[i] = newChild.key[i + order]; //copy end of newChild into front of xChild
 
-        if (!newChild.isLeaf)
-            for (int i = 0; i < halfKey() + 1; i++)
-                xChild.child[i] = newChild.child[i + halfKey() + 1];
-        newChild.numKey = halfKey();
+        if (!newChild.leaf) //if not leaf we have to reassign child nodes.
+            for (int i = 0; i < order; i++)
+                xChild.child[i] = newChild.child[i + order];
+        newChild.count = order - 1; // new size of newChild
 
-        for (int i = parent.numKey; i >= childIdx + 1; i--)
-            parent.child[i + 1] = parent.child[i];
-        parent.child[childIdx + 1] = xChild;
+        for (int i = parent.count; i > idx; i--) // if we push key into parent we have to rearrange child nodes
+            parent.child[i + 1] = parent.child[i]; // shift child
 
-        for (int i = parent.numKey - 1; i >= childIdx; i--)
-            parent.keys[i + 1] = parent.keys[i];
+        parent.child[idx + 1] = xChild; // reassing child of parent
 
-        parent.keys[childIdx] = newChild.keys[halfKey()];
-        parent.numKey++;
+        for (int i = parent.count; i > idx; i--)
+            parent.key[i + 1] = parent.key[i]; // shift keys
+
+        parent.key[idx] = newChild.key[order - 1]; // push value up into root;
+        newChild.key[order - 1] = 0;
+
+        for (int i = 0; i < order - 1; i++)
+            newChild.key[i + order] = 0; // del old values
+
+        parent.count++;
     }
 
     public void insert(int key) {
-        Node r = root;
-        if (r.numKey == M - 1) {
-            Node s = new Node();
+        BNode r = root; // start with root node
+        if (r.count == 2 * order - 1) {// if node full
+            BNode s = new BNode(order, null);
+            //init node
             root = s;
-            s.isLeaf = false;
-            s.numKey = 0;
+            s.leaf = false;
+            s.count = 0;
             s.child[0] = r;
-            split(s, 0, r);
-            insert(s, key);
+
+            split(s, 0, r); // split root
+            insert(s, key); // call insert method
         } else
             insert(r, key);
     }
-    private void insert(Node node, int key) {
-        int i;
-        if (node.isLeaf) {
-            for (i = node.numKey - 1; i >= 0 && key < node.keys[i]; i--)
-                node.keys[i + 1] = node.keys[i];
-            node.keys[i + 1] = key;
-            node.numKey++;
-        } else {
-            for (i = node.numKey - 1; i >= 0 && key < node.keys[i]; i--) ;
-            i++;
 
-            Node temp = node.child[i];
-            if (temp.numKey == M - 1) {
-                split(node, i, temp);
-                if (key > node.keys[i])
-                    i++;
+    private void insert(BNode node, int key) {
+        int i = node.count;
+        if (node.leaf) {
+            while (i >= 1 && key < node.key[i - 1]) { // findn stop to push
+                node.key[i] = node.key[i - 1];
+                i--;
             }
-            insert(node.child[i], key);
+            node.key[i] = key; // assing value to node
+            node.count++;
+        } else {
+            int j = 0;
+            while (j < node.count && key > node.key[j]) j++;
+            i++;
+            insert(node.child[j], key);
+            if (node.child[j].count == order * 2 - 1) {
+                split(node, j, node.child[j]); // call split on node's ith child
+                if (key > node.key[j])
+                    j++;
+            }
+
         }
     }
 
-    public void show() {
-        show(root);
+    public void delete(int key) {
+        BNode temp = new BNode(order, null);
+        temp = search(root, key);
+        if(temp.leaf && temp.count > order - 1) {
+            int i = 0;
+            while (key > temp.getValue(i)) i++;
+            for (int j = i; j < 2 * order - 2; j++)
+                temp.key[j] = temp.getValue(j+1);
+            temp.count--;
+        } else
+            System.out.println("This node is either not a leaf or has less than order - 1 keys.");
     }
-    private void show(Node root) {
-        System.out.println(Arrays.toString(root.keys));
-        if (!root.isLeaf)
-            for (int i = 0; i <= root.numKey; i++)
-                show(root.child[i]);
+
+    public void print(){ print(root); }
+    private void print(BNode node) {
+        for (int i = 0; i < node.count; i++)
+            System.out.print(node.getValue(i) + " ");
+        if (!node.leaf)
+            for (int i = 0; i <= node.count; i++)
+                if (node.getChild(i) != null) {
+                    System.out.println();
+                    print(node.getChild(i));
+                }
     }
 }
