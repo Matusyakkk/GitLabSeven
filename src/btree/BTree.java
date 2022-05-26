@@ -67,7 +67,7 @@ public class BTree {
         parent.child[idx + 1] = xChild; // reassing child of parent
 
         for (int i = parent.count; i > idx; i--)
-            parent.key[i + 1] = parent.key[i]; // shift keys
+            parent.key[i] = parent.key[i-1]; // shift keys
 
         parent.key[idx] = newChild.key[order - 1]; // push value up into root;
         newChild.key[order - 1] = 0;
